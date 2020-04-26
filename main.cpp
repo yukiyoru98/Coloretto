@@ -12,6 +12,7 @@ void takeRow(int, int [][4], int [][10], int, int*);
 void resetStatus(int[][10], int [][4], int [], int*);
 void sorting(int[][10]);
 int winner(int[]);
+bool checkInteger(int);
 
 //global variables and arrays
 const int n=5;//n is the number of players
@@ -21,7 +22,7 @@ const string CardTypes[11]={"0",//useless index
     "紅色","橘色","黃色","綠色","藍色","粉紅","灰色","彩色","＋2",
     //point cards are index 1~9
     "結束卡"};//index of ending card is 10
-int stack[77]={0};//there are 77 cards in the stack
+int stack[77]={0};//there are maximum 77 cards in the stack
 const int points[7]={0,1,3,6,10,15,21};//index 0 stands for nothing, other index stands for num of cards and the value stands for the corresponding points
 
 //main function
@@ -35,31 +36,47 @@ int main() {
     int RowsTaken=0;//counts how many rows are taken
     
     cout << "請選擇玩家人數(3~5人):";
-    cin >> num;
-    //distribute one chameleon to each player
-    for(int i=0, cardprevious=0, cardnext=0; i<num; i++){//cardprevious and cardnext is used to make sure no repeated colors
-        srand(unsigned(time(NULL)));
-        if(i==0){
-            cardprevious=(num==3)?(rand()%6+2):(rand()%7+1);
-            player[i][cardprevious]++;
-            counter[cardprevious]++;
+    //avoid invalid input(not integer or out of range 3~5)
+    bool numValid=false;
+    while(numValid==false){
+        cin >> num;
+        if((checkInteger(num)==false)||(num<3)||(num>5)){
+            cout << "輸入無效!請輸入數字3~5:";
         }
         else{
-            do{
-                cardnext=(num==3)?(rand()%6+2):(rand()%7+1);
-            }while(counter[cardnext]==1);
-            player[i][cardnext]++;
-            counter[cardnext]++;
-            cardprevious=cardnext;
+            numValid=true;
         }
     }
+    
+    
+    //distribute one chameleon to each player
+    for(int i=0, card=0; i<num; i++){//cardprevious and cardnext are to save index of colors, making sure there are no repeated colors
+        srand(unsigned(time(NULL)));
+        //index is 1~7, but for 3-player case color red(index 1) is omitted
+        if(i==0){//first player's color assignment
+            card=(num==3)?(rand()%6+2):(rand()%7+1);
+            player[i][card]++;//put into player's stack
+            counter[card]++;//counter +1 because one card in the color category is used
+        }
+        else{//compare next player's color with the previous one's
+            do{
+                card=(num==3)?(rand()%6+2):(rand()%7+1);
+            }while(counter[card]==1);//the condition means the same color is used before
+            player[i][card]++;
+            counter[card]++;
+            
+        }
+    }
+
+    //show initial status
     showStatus(player, Row);
+    
     //stack shuffling
-    int stackTotalCards=(num==3)?68:77;
-    int endingCard=stackTotalCards-16;
-    for(int i=0; i<stackTotalCards-num; i++){//num of cards in stack are 77-num because num cards have been distributed to players
-        if(i==endingCard-num){
-            stack[i] = 10;//index (endingCard-num)th card is the ending card
+    int stackTotalCards=((num==3)?68:77)-num;//77-num cards in stack in total because num cards have been distributed to players. But color red(with 9 cards)is omitted for 3-player game
+    int endingCard=stackTotalCards-16;//the index for the ending card is the sixteenth counting from the last card
+    for(int i=0; i<stackTotalCards; i++){
+        if(i==endingCard){
+            stack[i] = 10;//index (endingCard)th card is the ending card
         }
         else{
             stack[i] = (num==3)?rand()%8+2:rand()%9+1;//give stack[i] value from 1~9 corresponding to CardType but 2~9 when 3 players
@@ -103,7 +120,7 @@ int main() {
             if(i==0){//user
                 if(step==0){
                     cin >> choice;
-                    while((choice!=1)&&(choice!=2)){//avoid invalid input
+                    while((checkInteger(num)==false)||((choice!=1)&&(choice!=2))){//avoid invalid input
                         cout << "輸入無效！請再試一次。" << endl;
                         cout << "(請輸入 1 或 2)：" << endl;
                         cin >> choice;
@@ -111,6 +128,7 @@ int main() {
                 }
                 else{//user restricted choice
                     cin >> choice;//get input but ignore the value
+                    checkInteger(choice);//ignore if not integer
                     choice = step;//let choice=step directly
                 }
                 
@@ -134,7 +152,7 @@ int main() {
                     while(valid==false){
                         cin >> choice;
                         //avoid invalid input
-                        if((choice>num-1)||(choice<0)){
+                        if((checkInteger(num)==false)||(choice>num-1)||(choice<0)){
                             cout << "輸入無效！請再試一次。" << endl;
                             cout << "(請輸入0~" << num-1 << "):" << endl;
                         }
@@ -167,7 +185,7 @@ int main() {
                     //avoid invalid input
                     while(valid==false){
                         cin >> choice;
-                        if((choice>num-1)||(choice<0)){
+                        if((checkInteger(num)==false)||(choice>num-1)||(choice<0)){
                             cout << "輸入無效！請再試一次。" << endl;
                             cout << "(請輸入0~" << num-1 << "):" << endl;
                         }
@@ -223,14 +241,15 @@ int main() {
             step=2;//movement restricted to 2
         }
         
-        //when all rows are taken, start a new round
+        //when all rows are taken...
         if(RowsTaken==num){
-            if(stackFlag>endingCard-num){//but end game when ending card is shown
+            if(stackFlag>endingCard){//end game when ending card is shown
                 cout << "--------遊戲結束--------" << endl;
                 break;
-            }
+            }//if ending card is not shown then start a new round
             resetStatus(player,Row,RowFlag,&RowsTaken);
             cout << "--------新回合--------" << endl;
+            i--;//next player is the last player in the previous round
             showStatus(player,Row);
             step=1;//retrict the starting player's movement to 1
         }
@@ -329,8 +348,8 @@ void showStatus(int player[][10], int Row[][4])
 }
 
 void draw(int choice, int *stackFlag, int endingCard){
-    cout << "翻出的牌是「" << CardTypes[stack[*stackFlag]] << "」" << endl;//if stackFlag=61-num, it points to the ending card
-    if(*stackFlag==endingCard-num){
+    cout << "翻出的牌是「" << CardTypes[stack[*stackFlag]] << "」" << endl;
+    if(*stackFlag==endingCard){
         cout << "--------此為最終回合--------" << endl;
         *stackFlag+=1;
         cout << "再翻一張牌..." << endl;
@@ -393,3 +412,11 @@ int winner(int total[]){
     return winner;
 }
 
+bool checkInteger(int input){//ignore input if not integer
+    if(cin.fail()){
+        cin.clear();
+        cin.ignore(numeric_limits<streamsize>::max(),'\n');
+        return false;
+    }
+    else    return true;
+}
